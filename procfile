@@ -1,1 +1,1 @@
-web: gunicorn main:NET-ontwerp
+web: gunicorn core.app_factory:create_app()
