@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
-from .mail_processor import (
+from mail_organizer import (
     extract_project_folder_name,
     get_or_create_folder,
     should_exclude_mail,
