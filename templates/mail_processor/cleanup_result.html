@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Opruimen Compleet - Mail Organizer{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('mail_organizer.main') }}"
+           class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center px-4 py-2 border border-blue-400 rounded-lg hover:bg-blue-400 hover:bg-opacity-10">
+            ← Terug naar overzicht
+        </a>
+    </div>
+
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-4">Opruimen Compleet</h1>
+    </div>
+
+    <!-- Success Message -->
+    <div class="bg-green-500 bg-opacity-20 border border-green-400 text-green-100 p-6 rounded-lg mb-6 text-center">
+        <div class="text-2xl font-bold text-green-300 mb-2">✓ Opruimen Succesvol</div>
+        <p>Alle automatisch aangemaakte mappen zijn verwijderd</p>
+    </div>
+
+    <!-- Statistics -->
+    <div class="app-card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-6 border-b border-blue-400 pb-3">
+            Statistieken
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-blue-500 bg-opacity-20 border border-blue-400 p-4 rounded-lg text-center">
+                <div class="text-3xl font-bold text-blue-300 mb-2">{{ data.moved_count }}</div>
+                <div class="text-blue-200">Mails Teruggeplaatst</div>
+            </div>
+
+            <div class="bg-red-500 bg-opacity-20 border border-red-400 p-4 rounded-lg text-center">
+                <div class="text-3xl font-bold text-red-300 mb-2">{{ data.deleted_folders|length }}</div>
+                <div class="text-red-200">Mappen Verwijderd</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deleted Folders List -->
+    {% if data.deleted_folders %}
+    <div class="app-card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-6 border-b border-blue-400 pb-3">
+            Verwijderde Mappen
+        </h3>
+
+        <div class="space-y-2">
+            {% for folder in data.deleted_folders %}
+                <div class="bg-white bg-opacity-5 p-3 rounded-lg text-gray-300">
+                    {{ folder }}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="text-center">
+        <a href="{{ url_for('mail_organizer.process') }}"
+           class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-all hover:scale-105 inline-block">
+            Nieuwe Verwerking Starten
+        </a>
+    </div>
+</div>
+{% endblock %}
