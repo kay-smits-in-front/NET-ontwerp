@@ -1,3 +1,4 @@
+"""Routing for the mail_organizer application."""
 from flask import Blueprint, render_template, request, flash, redirect, url_for, send_file
 import os
 from .mail_organizer import (

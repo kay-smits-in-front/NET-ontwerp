@@ -1,3 +1,4 @@
+"""Routing for the calculator application."""
 from flask import Blueprint, render_template
 
 bp = Blueprint('calculator', __name__, url_prefix='/calculator')
