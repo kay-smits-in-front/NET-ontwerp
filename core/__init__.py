@@ -1,2 +1,1 @@
-import secrets
-print(secrets.token_hex(32))
+"""Initialisation of the app builder."""
