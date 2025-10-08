@@ -1,9 +1,0 @@
-{
-  "name": "net-ontwerp",
-  "description": "Review app for net-ontwerp",
-  "buildpacks": [
-    {
-      "url": "heroku/python"
-    }
-  ]
-}

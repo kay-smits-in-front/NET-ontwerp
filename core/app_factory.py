@@ -1,24 +1,24 @@
 from flask import Flask, render_template
 import sys
 import os
+from config import config
 
 
-def create_app():
-	# Add project root to python path
+def create_app(config_name='development'):
 	project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 	if project_root not in sys.path:
 		sys.path.insert(0, project_root)
 
 	app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
-	# Load apps
+	app.config.from_object(config[config_name])
+
 	apps = load_apps()
 
 	@app.route('/')
 	def index():
 		return render_template('index.html', apps=apps)
 
-	# Register app blueprints
 	for app_info in apps:
 		try:
 			module = __import__(f'apps.{app_info["module"]}.routes', fromlist=['bp'])
@@ -33,7 +33,6 @@ def load_apps():
 	apps = []
 	apps_dir = 'apps'
 
-	# Folders to ignore
 	ignore_folders = {'__pycache__', '.idea', '.git', '.vscode'}
 
 	if os.path.exists(apps_dir):

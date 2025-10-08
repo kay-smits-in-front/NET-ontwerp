@@ -1,0 +1,71 @@
+# Python compiled
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment non commit -> to heavy
+venv/
+env/
+ENV/
+.venv
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment variables dont commit these
+.env
+.env.local
+.env.*.local
+
+# Uploads
+uploads/
+*.pdf
+*.xlsx
+*.csv
+*.docx
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Log files
+*.log
+logs/
+
+# Operating systems junkfiles
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Testing (cahce and coverage reports)
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Render
+.render/
