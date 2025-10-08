@@ -1,0 +1,14 @@
+# Include production requirements
+-r requirements.txt
+
+# Development and testing tools
+black==25.9.0
+ruff==0.13.1
+isort==6.0.1
+pytest==8.4.2
+pytest-cov==7.0.0
+coverage==7.10.7
+mypy_extensions==1.1.0
+
+# Windows-only (for Outlook mail_organizer)
+pywin32>=305 ; sys_platform == 'win32'
