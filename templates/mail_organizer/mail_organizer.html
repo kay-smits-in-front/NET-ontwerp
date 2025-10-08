@@ -8,6 +8,29 @@
         <h1 class="text-4xl font-bold text-white mb-4">Mail Organizer</h1>
     </div>
 
+    <!-- Warning voor Mac/Linux gebruikers -->
+    <div class="bg-yellow-500 bg-opacity-20 border border-yellow-400 text-yellow-100 p-6 rounded-lg mb-6">
+        <h3 class="text-lg font-semibold text-yellow-200 mb-3">⚠️ Belangrijk: Deze app werkt alleen op Windows computers</h3>
+        <p class="mb-3">Mail Organizer is alleen beschikbaar voor <strong>Windows</strong> met Microsoft Outlook geïnstalleerd.</p>
+        <p class="mb-3"><strong>Mac en Linux gebruikers:</strong> Download het standalone Python script hieronder en gebruik het op een Windows computer.</p>
+
+        <div class="mt-4 bg-yellow-600 bg-opacity-20 p-4 rounded">
+            <p class="font-semibold mb-2">Instructies voor standalone script:</p>
+            <ol class="list-decimal list-inside space-y-1 text-sm">
+                <li>Download Python (indien nog niet geïnstalleerd): <a href="https://www.python.org/downloads/" class="underline" target="_blank">python.org</a></li>
+                <li>Installeer pywin32: <code class="bg-black bg-opacity-30 px-2 py-1 rounded">pip install pywin32</code></li>
+                <li>Run het script: <code class="bg-black bg-opacity-30 px-2 py-1 rounded">python outlook_mail_organizer.py</code></li>
+            </ol>
+        </div>
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('mail_organizer.download_script') }}"
+               class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-all hover:scale-105 inline-block">
+                💾 Download Windows Script
+            </a>
+        </div>
+    </div>
+
     <div class="app-card rounded-lg p-8 mb-8 bg-white">
         <p class="text-lg text-black">Automatische mail organisatie voor Outlook</p>
 
@@ -25,6 +48,14 @@
                 <li class="flex items-start">
                     <span class="text-blue-400 mr-2">•</span>
                     Voorbeeld: "2024EN00183 - VGE Herten Oolder Veste - shd" → map "Herten Oolder Veste [AUTO]"
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Verwerkt laatste X mails (instelbaar), zowel gelezen als ongelezen
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Behoudt gelezen/ongelezen status van mails
                 </li>
                 <li class="flex items-start">
                     <span class="text-blue-400 mr-2">•</span>
