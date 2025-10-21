@@ -9,7 +9,9 @@ from .mail_organizer import (
 	get_auto_folders,
 	log_message,
 )
+import logging
 
+logger = logging.getLogger(__name__)
 
 bp = Blueprint('mail_organizer', __name__, url_prefix='/mail_organizer')
 
@@ -53,7 +55,8 @@ def download_script():
 
 
 def handle_process_mails():
-	"""Process emails based on user input"""
+	"""Process mails based on user input"""
+	logger.info("Starting email processing")
 	try:
 		max_mails = request.form.get('max_mails', type=int)
 		exclusion_text = request.form.get('exclusion_words', '')
@@ -149,7 +152,9 @@ def handle_process_mails():
 
 	except Exception as e:
 		flash(f'Error: {str(e)}', 'error')
+		logger.error(f"Error processing mail: {e}")
 		return redirect(url_for('mail_organizer.process'))
+
 
 
 def handle_cleanup():
