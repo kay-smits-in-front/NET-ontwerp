@@ -1,11 +1,11 @@
 """Core of the mail_organizaer application running inside render."""
+
 try:
     import win32com.client
 except ImportError:
     win32com = None
 
 from datetime import datetime
-
 
 AUTO_SUFFIX = '[AUTO]'
 
