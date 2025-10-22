@@ -8,45 +8,84 @@
         <h1 class="text-4xl font-bold text-white mb-4">NET Ontwerp Berekeningsmodule</h1>
     </div>
 
-    <div class="app-card rounded-lg p-8 mb-8 bg-white">
-            <p class="text-lg text-black">Ondersteuningsmodule NET ontwerp</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <!-- Huizen Analyse -->
+        <div class="app-card rounded-lg p-6 bg-white cursor-pointer" onclick="location.href='{{ url_for('NETontwerp.house_detection') }}'">
+            <h3 class="text-2xl font-semibold text-black mb-4">Huizen Detectie & Analyse</h3>
+            <p class="text-gray-700 mb-4">Automatische detectie van huizen uit Lovion screenshots en kabel toewijzing</p>
 
-            <div>
-                <h3 class="text-xl font-semibold text-black mb-3 p-3 ">Functionaliteiten:</h3>
-                <ul class="space-y-2 text-black">
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        PDF upload voor aanbesteding documenten
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        Buurtcode invoer
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        Check ontwerp kaders
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        Inventarisatie aansluitingen per kabel type
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        Berekening aantal benodigde stations
-                    </li>
-                    <li class="flex items-start">
-                        <span class="text-blue-400 mr-2">•</span>
-                        Bepaling kabel types en hoeveelheden
-                    </li>
-                </ul>
+            <ul class="space-y-2 text-black mb-6">
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Upload Lovion screenshot (PNG)
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Automatische huizen detectie
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Straat toewijzing
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Kabel berekening per straat
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Live status aangesloten/niet-aangesloten
+                </li>
+            </ul>
+
+            <div class="text-center">
+                <span class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-all inline-block">
+                    Start Analyse
+                </span>
+            </div>
         </div>
 
-        <div class="text-center">
-            <a href="{{ url_for('NETontwerp.berekening') }}"
-               class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-all hover:scale-105 inline-block">
-                Start Berekening
-            </a>
+        <!-- Handmatige Berekening -->
+        <div class="app-card rounded-lg p-6 bg-white cursor-pointer" onclick="location.href='{{ url_for('NETontwerp.berekening') }}'">
+            <h3 class="text-2xl font-semibold text-black mb-4">Handmatige Berekening</h3>
+            <p class="text-gray-700 mb-4">Traditionele invoer voor NET ontwerp berekeningen</p>
+
+            <ul class="space-y-2 text-black mb-6">
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    PDF upload voor aanbesteding
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Buurtcode invoer
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Ontwerp kaders check
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Station berekeningen
+                </li>
+                <li class="flex items-start">
+                    <span class="text-blue-400 mr-2">•</span>
+                    Kabel specificaties
+                </li>
+            </ul>
+
+            <div class="text-center">
+                <span class="bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-lg font-medium transition-all inline-block">
+                    Start Berekening
+                </span>
+            </div>
         </div>
+    </div>
+
+    <div class="bg-blue-500 bg-opacity-20 border border-blue-400 text-blue-100 p-6 rounded-lg">
+        <h4 class="text-lg font-semibold text-blue-200 mb-3">Over NET Ontwerp</h4>
+        <p class="text-blue-100">
+            Deze module ondersteunt engineers bij het ontwerpen van elektriciteitsnetwerken.
+            Gebruik de huizen detectie voor snelle analyse van Lovion kaarten, of de handmatige berekening voor gedetailleerde projectplanning.
+        </p>
     </div>
 </div>
 {% endblock %}

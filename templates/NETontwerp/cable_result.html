@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Resultaat - NETontwerp{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6 flex space-x-4">
+        <a href="{{ url_for('NETontwerp.main') }}"
+           class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center px-4 py-2 border border-blue-400 rounded-lg hover:bg-blue-400 hover:bg-opacity-10">
+            ← Overzicht
+        </a>
+        <a href="{{ url_for('NETontwerp.house_analysis') }}"
+           class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center px-4 py-2 border border-blue-400 rounded-lg hover:bg-blue-400 hover:bg-opacity-10">
+            Nieuwe Analyse
+        </a>
+    </div>
+
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-4">Kabel Toewijzing Resultaat</h1>
+    </div>
+
+    {% if data.houses_not_connected == 0 %}
+    <div class="bg-green-500 bg-opacity-20 border border-green-400 text-green-100 p-6 rounded-lg mb-6 text-center">
+        <div class="text-2xl font-bold text-green-300 mb-2">✓ Alle Huizen Aangesloten!</div>
+        <p>Alle {{ data.house_count }} huizen hebben een stroomvoorziening</p>
+    </div>
+    {% else %}
+    <div class="bg-red-500 bg-opacity-20 border border-red-400 text-red-100 p-6 rounded-lg mb-6 text-center">
+        <div class="text-2xl font-bold text-red-300 mb-2">⚠ Niet Alle Huizen Aangesloten</div>
+        <p>{{ data.houses_not_connected }} van {{ data.house_count }} huizen hebben nog geen stroomvoorziening</p>
+    </div>
+    {% endif %}
+
+    <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-blue-500 bg-opacity-20 border border-blue-400 p-4 rounded-lg text-center">
+            <div class="text-3xl font-bold text-blue-300">{{ data.house_count }}</div>
+            <div class="text-blue-200">Totaal Huizen</div>
+        </div>
+        <div class="bg-green-500 bg-opacity-20 border border-green-400 p-4 rounded-lg text-center">
+            <div class="text-3xl font-bold text-green-300">{{ data.houses_connected }}</div>
+            <div class="text-green-200">Aangesloten</div>
+        </div>
+        <div class="bg-red-500 bg-opacity-20 border border-red-400 p-4 rounded-lg text-center">
+            <div class="text-3xl font-bold text-red-300">{{ data.houses_not_connected }}</div>
+            <div class="text-red-200">Niet Aangesloten</div>
+        </div>
+    </div>
+
+    <div class="app-card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-6 border-b border-blue-400 pb-3">
+            Kabel Toewijzing per Straat
+        </h3>
+
+        <div class="space-y-4">
+            {% for street in data.streets %}
+            <div class="bg-white bg-opacity-5 p-4 rounded-lg">
+                <div class="flex justify-between items-center mb-2">
+                    <div class="font-medium text-white text-lg">{{ street }}</div>
+                    {% if street in data.assigned_cables %}
+                        <span class="bg-green-500 bg-opacity-30 text-green-200 px-3 py-1 rounded-full text-sm">
+                            Kabel Toegewezen
+                        </span>
+                    {% else %}
+                        <span class="bg-red-500 bg-opacity-30 text-red-200 px-3 py-1 rounded-full text-sm">
+                            Geen Kabel
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mt-3">
+                    <div class="text-gray-300">
+                        <span class="text-sm">Huizen:</span>
+                        <span class="font-bold">{{ data.houses_per_street }}</span>
+                    </div>
+                    <div class="text-gray-300">
+                        <span class="text-sm">Kabel:</span>
+                        <span class="font-bold">
+                            {% if street in data.assigned_cables %}
+                                {{ data.assigned_cables[street] }}
+                            {% else %}
+                                Niet toegewezen
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% if data.houses_not_connected > 0 %}
+    <div class="bg-yellow-500 bg-opacity-20 border border-yellow-400 text-yellow-100 p-6 rounded-lg">
+        <h4 class="text-lg font-semibold text-yellow-200 mb-3">Aanbeveling:</h4>
+        <p>
+            Er zijn nog {{ data.houses_not_connected }} huizen zonder stroomvoorziening.
+            Overwegen om kabels met hogere capaciteit toe te wijzen of extra kabels toe te voegen.
+        </p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

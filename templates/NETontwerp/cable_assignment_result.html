@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Kabel Toewijzing Resultaat - NETontwerp{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="mb-6 flex space-x-4">
+        <a href="{{ url_for('NETontwerp.main') }}"
+           class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center px-4 py-2 border border-blue-400 rounded-lg hover:bg-blue-400 hover:bg-opacity-10">
+            ← Overzicht
+        </a>
+        <a href="{{ url_for('NETontwerp.street_assignment') }}"
+           class="text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center px-4 py-2 border border-blue-400 rounded-lg hover:bg-blue-400 hover:bg-opacity-10">
+            ← Aanpassen
+        </a>
+    </div>
+
+    <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-white mb-4">Kabel Toewijzing Resultaat</h1>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div class="app-card rounded-2xl p-6 text-center">
+            <div class="text-4xl font-bold text-white mb-2">{{ data.total_houses }}</div>
+            <div class="text-gray-300">Totaal Huizen</div>
+        </div>
+
+        <div class="app-card rounded-2xl p-6 text-center">
+            <div class="text-4xl font-bold text-white mb-2">{{ data.total_streets }}</div>
+            <div class="text-gray-300">Straten</div>
+        </div>
+
+        <div class="app-card rounded-2xl p-6 text-center bg-green-500 bg-opacity-20 border border-green-400">
+            <div class="text-4xl font-bold text-green-300 mb-2">{{ data.total_connected }}</div>
+            <div class="text-green-200">Aangesloten</div>
+        </div>
+
+        <div class="app-card rounded-2xl p-6 text-center bg-red-500 bg-opacity-20 border border-red-400">
+            <div class="text-4xl font-bold text-red-300 mb-2">{{ data.total_unconnected }}</div>
+            <div class="text-red-200">Niet Aangesloten</div>
+        </div>
+    </div>
+
+    <!-- Detection Image -->
+    {% if data.detection_image %}
+    <div class="app-card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-4">Gedetecteerde Huizen</h3>
+        <img src="{{ url_for('static', filename='uploads/' + data.detection_image) }}"
+             alt="Detection"
+             class="w-full rounded-lg border border-white border-opacity-20">
+    </div>
+    {% endif %}
+
+    <!-- Street Details -->
+    <div class="app-card rounded-2xl p-6 mb-6">
+        <h3 class="text-xl font-semibold text-white mb-6 border-b border-blue-400 pb-3">
+            Details per Straat
+        </h3>
+
+        <div class="space-y-4">
+            {% for street in data.streets %}
+            <div class="{% if street.can_handle %}bg-green-500 bg-opacity-10 border-green-400{% else %}bg-red-500 bg-opacity-10 border-red-400{% endif %} border p-6 rounded-lg">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h4 class="text-2xl font-bold text-white mb-2">{{ street.name }}</h4>
+                        <div class="text-gray-300">
+                            <div>{{ street.houses }} huizen (gemiddeld {{ data.houses_per_street }} per straat)</div>
+                            <div>Benodigd: {{ street.ampere_needed }}A / {{ street.kva_needed }} kVA</div>
+                        </div>
+                    </div>
+
+                    {% if street.can_handle %}
+                    <div class="bg-green-600 text-white px-4 py-2 rounded-lg font-medium">
+                        ✓ Voldoende Capaciteit
+                    </div>
+                    {% else %}
+                    <div class="bg-red-600 text-white px-4 py-2 rounded-lg font-medium">
+                        ✗ Onvoldoende Capaciteit
+                    </div>
+                    {% endif %}
+                </div>
+
+                {% if street.cable %}
+                <div class="bg-white bg-opacity-10 p-4 rounded-lg">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <div class="text-gray-400 text-sm">Toegewezen Kabel</div>
+                            <div class="text-white font-medium">{{ street.cable }}</div>
+                        </div>
+                        <div>
+                            <div class="text-gray-400 text-sm">Aangesloten Huizen</div>
+                            <div class="{% if street.can_handle %}text-green-300{% else %}text-red-300{% endif %} font-medium">
+                                {{ street.connected }} van {{ street.houses }}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-gray-400 text-sm">Status</div>
+                            <div class="{% if street.can_handle %}text-green-300{% else %}text-red-300{% endif %} font-medium">
+                                {% if street.can_handle %}
+                                    Alle huizen voorzien
+                                {% else %}
+                                    Grotere kabel nodig
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-yellow-500 bg-opacity-20 border border-yellow-400 text-yellow-100 p-4 rounded-lg">
+                    Geen kabel toegewezen
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Recommendations -->
+    {% if data.total_unconnected > 0 %}
+    <div class="bg-yellow-500 bg-opacity-20 border border-yellow-400 text-yellow-100 p-6 rounded-lg">
+        <h4 class="text-lg font-semibold text-yellow-200 mb-3">⚠️ Aanbevelingen</h4>
+        <p class="mb-2">Er zijn nog {{ data.total_unconnected }} huizen niet aangesloten.</p>
+        <ul class="space-y-2 ml-4">
+            <li>• Controleer of de toegewezen kabels voldoende capaciteit hebben</li>
+            <li>• Overweeg kabels met hogere capaciteit voor straten met veel huizen</li>
+            <li>• Voeg extra kabels toe waar nodig</li>
+        </ul>
+    </div>
+    {% else %}
+    <div class="bg-green-500 bg-opacity-20 border border-green-400 text-green-100 p-6 rounded-lg text-center">
+        <div class="text-2xl font-bold text-green-300 mb-2">✓ Alle Huizen Voorzien</div>
+        <p>Alle {{ data.total_houses }} huizen hebben voldoende stroomvoorziening met de toegewezen kabels.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
