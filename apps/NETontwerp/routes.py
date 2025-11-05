@@ -5,6 +5,7 @@ from flask import (
     Blueprint,
     current_app,
     flash,
+    jsonify,
     redirect,
     render_template,
     request,
@@ -255,3 +256,102 @@ def handle_form_submission():
     }
 
     return render_template('NETontwerp/resultaat.html', data=form_data)
+
+
+@bp.route('/map-extraction', methods=['GET'])
+@handle_errors(redirect_endpoint='NETontwerp.main')
+def map_extraction():
+    """Interactive map-based house extraction interface"""
+    return render_template('NETontwerp/map_extraction.html')
+
+
+@bp.route('/api/extract-buildings', methods=['POST'])
+@handle_errors(redirect_endpoint='NETontwerp.main')
+def extract_buildings():
+    """API endpoint to extract buildings within a polygon using Overpass API"""
+    import requests
+    from shapely.geometry import Point, Polygon
+
+    try:
+        data = request.get_json()
+        polygon_coords = data.get('polygon', [])
+
+        if len(polygon_coords) < 3:
+            return jsonify({'error': 'Polygon moet minimaal 3 punten hebben'}), 400
+
+        # Create bounding box for Overpass API query
+        lats = [coord[0] for coord in polygon_coords]
+        lngs = [coord[1] for coord in polygon_coords]
+        bbox = f"{min(lats)},{min(lngs)},{max(lats)},{max(lngs)}"
+
+        # Query Overpass API for buildings
+        overpass_url = "http://overpass-api.de/api/interpreter"
+        overpass_query = f"""
+        [out:json][timeout:25];
+        (
+          way["building"]({bbox});
+          relation["building"]({bbox});
+        );
+        out body;
+        >;
+        out skel qt;
+        """
+
+        logger.info(f'Querying Overpass API with bbox: {bbox}')
+        response = requests.post(overpass_url, data={'data': overpass_query}, timeout=30)
+        response.raise_for_status()
+
+        osm_data = response.json()
+        logger.info(f'Received {len(osm_data.get("elements", []))} OSM elements')
+
+        # Create polygon for intersection check
+        poly = Polygon(polygon_coords)
+
+        # Process buildings
+        buildings = []
+        nodes = {}
+
+        # First pass: collect all nodes
+        for element in osm_data.get('elements', []):
+            if element['type'] == 'node':
+                nodes[element['id']] = (element['lat'], element['lon'])
+
+        # Second pass: process ways (buildings)
+        for element in osm_data.get('elements', []):
+            if element['type'] == 'way' and 'building' in element.get('tags', {}):
+                node_ids = element.get('nodes', [])
+                building_coords = []
+
+                for node_id in node_ids:
+                    if node_id in nodes:
+                        lat, lon = nodes[node_id]
+                        building_coords.append([lat, lon])
+
+                if len(building_coords) >= 3:
+                    # Check if building center is within polygon
+                    building_poly = Polygon(building_coords)
+                    center = building_poly.centroid
+
+                    if poly.contains(Point(center.x, center.y)):
+                        buildings.append({
+                            'id': element['id'],
+                            'coords': building_coords,
+                            'center': [center.x, center.y],
+                            'type': element.get('tags', {}).get('building', 'yes'),
+                            'name': element.get('tags', {}).get('name', ''),
+                        })
+
+        logger.info(f'Found {len(buildings)} buildings within polygon')
+
+        return jsonify({
+            'success': True,
+            'count': len(buildings),
+            'buildings': buildings,
+        })
+
+    except requests.RequestException as e:
+        logger.error(f'Overpass API error: {e}')
+        return jsonify({'error': f'API fout: {str(e)}'}), 500
+    except Exception as e:
+        logger.error(f'Building extraction error: {e}')
+        return jsonify({'error': f'Extractie fout: {str(e)}'}), 500

@@ -1,0 +1,435 @@
+{% extends "base.html" %}
+
+{% block title %}Kaart-gebaseerde Huizendetectie - NETontwerp{% endblock %}
+
+{% block content %}
+<div class="app-card rounded-xl p-6 shadow-2xl">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold mb-2">Interactieve Kaart Huizendetectie</h1>
+        <p class="text-gray-200">Teken een polygoon op de kaart om huizen te detecteren</p>
+    </div>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+
+    <!-- Leaflet Draw CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+
+    <style>
+        #map-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            height: 700px;
+        }
+
+        #map {
+            height: 100%;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        #controls {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .control-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .control-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-box {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.5);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .success-box {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+        }
+
+        .error-box {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.5);
+        }
+
+        .building-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .building-item {
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1024px) {
+            #map-container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            #map {
+                height: 500px;
+            }
+        }
+    </style>
+
+    <div id="map-container">
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Controls -->
+        <div id="controls">
+            <div class="control-section">
+                <h3>🗺️ Instructies</h3>
+                <p class="text-sm text-gray-200 mb-3">
+                    1. Gebruik de polygoon-tool in de linker bovenhoek<br>
+                    2. Teken een gebied op de kaart<br>
+                    3. Klik op "Huizen Detecteren"<br>
+                    4. Bekijk de resultaten hieronder
+                </p>
+            </div>
+
+            <div class="control-section">
+                <h3>🎯 Acties</h3>
+                <button id="extractBtn" class="btn btn-primary" disabled>
+                    🏠 Huizen Detecteren
+                </button>
+                <button id="clearBtn" class="btn btn-danger">
+                    🗑️ Reset Kaart
+                </button>
+            </div>
+
+            <div class="control-section">
+                <h3>📊 Resultaten</h3>
+                <div id="results">
+                    <div class="info-box">
+                        <p class="text-sm">Teken een polygoon om te beginnen</p>
+                    </div>
+                </div>
+
+                <div id="loading" class="loading">
+                    <div class="spinner"></div>
+                    <p class="mt-3">Huizen detecteren...</p>
+                </div>
+            </div>
+
+            <div id="building-list-container" class="control-section" style="display: none;">
+                <h3>🏘️ Gedetecteerde Huizen</h3>
+                <div id="building-list" class="building-list"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
+
+<!-- Leaflet Draw JS -->
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<script>
+    // Initialize map centered on Netherlands
+    const map = L.map('map').setView([52.0907, 5.1214], 8);
+
+    // Add OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Create feature groups for drawings and buildings
+    const drawnItems = new L.FeatureGroup();
+    map.addLayer(drawnItems);
+
+    const buildingLayers = new L.FeatureGroup();
+    map.addLayer(buildingLayers);
+
+    // Add drawing controls
+    const drawControl = new L.Control.Draw({
+        draw: {
+            polygon: {
+                allowIntersection: false,
+                shapeOptions: {
+                    color: '#3b82f6',
+                    weight: 3,
+                    fillOpacity: 0.2
+                }
+            },
+            polyline: false,
+            rectangle: {
+                shapeOptions: {
+                    color: '#3b82f6',
+                    weight: 3,
+                    fillOpacity: 0.2
+                }
+            },
+            circle: false,
+            circlemarker: false,
+            marker: false
+        },
+        edit: {
+            featureGroup: drawnItems,
+            remove: true
+        }
+    });
+    map.addControl(drawControl);
+
+    // Store current polygon
+    let currentPolygon = null;
+    let currentBuildings = [];
+
+    // Handle polygon creation
+    map.on(L.Draw.Event.CREATED, function (e) {
+        const layer = e.layer;
+
+        // Clear previous drawings
+        drawnItems.clearLayers();
+        buildingLayers.clearLayers();
+
+        drawnItems.addLayer(layer);
+        currentPolygon = layer;
+
+        // Enable extract button
+        document.getElementById('extractBtn').disabled = false;
+
+        // Update UI
+        updateResults('info', 'Polygoon getekend. Klik op "Huizen Detecteren" om te starten.');
+    });
+
+    // Handle polygon edit
+    map.on(L.Draw.Event.EDITED, function (e) {
+        currentPolygon = drawnItems.getLayers()[0];
+        buildingLayers.clearLayers();
+        updateResults('info', 'Polygoon aangepast. Klik op "Huizen Detecteren" om opnieuw te detecteren.');
+    });
+
+    // Handle polygon deletion
+    map.on(L.Draw.Event.DELETED, function (e) {
+        currentPolygon = null;
+        buildingLayers.clearLayers();
+        document.getElementById('extractBtn').disabled = true;
+        updateResults('info', 'Teken een polygoon om te beginnen');
+        document.getElementById('building-list-container').style.display = 'none';
+    });
+
+    // Extract buildings button
+    document.getElementById('extractBtn').addEventListener('click', async function() {
+        if (!currentPolygon) {
+            updateResults('error', 'Teken eerst een polygoon op de kaart.');
+            return;
+        }
+
+        // Get polygon coordinates
+        const latlngs = currentPolygon.getLatLngs()[0];
+        const polygon = latlngs.map(latlng => [latlng.lat, latlng.lng]);
+
+        // Show loading
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('results').style.display = 'none';
+
+        try {
+            // Call API
+            const response = await fetch('/NETontwerp/api/extract-buildings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ polygon: polygon })
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // Clear previous buildings
+            buildingLayers.clearLayers();
+            currentBuildings = data.buildings;
+
+            // Display buildings on map
+            data.buildings.forEach((building, index) => {
+                // Draw building polygon
+                const buildingPolygon = L.polygon(building.coords, {
+                    color: '#22c55e',
+                    weight: 2,
+                    fillColor: '#22c55e',
+                    fillOpacity: 0.3
+                }).addTo(buildingLayers);
+
+                // Add popup with building info
+                const popupContent = `
+                    <strong>Huis ${index + 1}</strong><br>
+                    Type: ${building.type}<br>
+                    ${building.name ? 'Naam: ' + building.name + '<br>' : ''}
+                    ID: ${building.id}
+                `;
+                buildingPolygon.bindPopup(popupContent);
+
+                // Add marker at center
+                const marker = L.circleMarker(building.center, {
+                    radius: 5,
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 1,
+                    weight: 2
+                }).addTo(buildingLayers);
+
+                marker.bindPopup(popupContent);
+            });
+
+            // Update results
+            updateResults('success', `✅ ${data.count} huizen gedetecteerd!`);
+
+            // Display building list
+            displayBuildingList(data.buildings);
+
+            // Fit map to show all buildings
+            if (data.buildings.length > 0) {
+                const bounds = buildingLayers.getBounds();
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            updateResults('error', `Fout: ${error.message}`);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+        }
+    });
+
+    // Clear button
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        drawnItems.clearLayers();
+        buildingLayers.clearLayers();
+        currentPolygon = null;
+        currentBuildings = [];
+        document.getElementById('extractBtn').disabled = true;
+        updateResults('info', 'Kaart gereset. Teken een nieuwe polygoon.');
+        document.getElementById('building-list-container').style.display = 'none';
+    });
+
+    // Update results display
+    function updateResults(type, message) {
+        const resultsDiv = document.getElementById('results');
+        const className = type === 'error' ? 'error-box' :
+                         type === 'success' ? 'success-box' : 'info-box';
+        resultsDiv.innerHTML = `<div class="${className}"><p class="text-sm">${message}</p></div>`;
+    }
+
+    // Display building list
+    function displayBuildingList(buildings) {
+        const container = document.getElementById('building-list-container');
+        const list = document.getElementById('building-list');
+
+        if (buildings.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        container.style.display = 'block';
+        list.innerHTML = '';
+
+        buildings.forEach((building, index) => {
+            const item = document.createElement('div');
+            item.className = 'building-item';
+            item.innerHTML = `
+                <strong>Huis ${index + 1}</strong><br>
+                <small>Type: ${building.type} | ID: ${building.id}</small>
+            `;
+
+            // Click to highlight on map
+            item.style.cursor = 'pointer';
+            item.addEventListener('click', function() {
+                map.setView(building.center, 18);
+            });
+
+            list.appendChild(item);
+        });
+    }
+</script>
+{% endblock %}
