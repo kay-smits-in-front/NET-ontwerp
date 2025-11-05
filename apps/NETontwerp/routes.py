@@ -305,12 +305,17 @@ def extract_buildings():
         bbox = f"{min(lats)},{min(lngs)},{max(lats)},{max(lngs)}"
 
         # Query Overpass API for buildings only (no roads = faster)
-        overpass_url = "http://overpass-api.de/api/interpreter"
+        # Try multiple Overpass API instances for reliability
+        overpass_urls = [
+            "https://overpass-api.de/api/interpreter",
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://overpass.openstreetmap.ru/api/interpreter",
+        ]
+
         overpass_query = f"""
-        [out:json][timeout:25];
+        [out:json][timeout:90];
         (
           way["building"]({bbox});
-          relation["building"]({bbox});
         );
         out body;
         >;
@@ -318,8 +323,28 @@ def extract_buildings():
         """
 
         logger.info(f'Querying Overpass API with bbox: {bbox}')
-        response = requests.post(overpass_url, data={'data': overpass_query}, timeout=30)
-        response.raise_for_status()
+
+        # Try each API endpoint until one works
+        last_error = None
+        for overpass_url in overpass_urls:
+            try:
+                logger.info(f'Trying {overpass_url}...')
+                response = requests.post(
+                    overpass_url,
+                    data={'data': overpass_query},
+                    timeout=60,
+                    headers={'User-Agent': 'NETontwerp/1.0'}
+                )
+                response.raise_for_status()
+                logger.info(f'Success with {overpass_url}')
+                break
+            except requests.RequestException as e:
+                logger.warning(f'Failed with {overpass_url}: {e}')
+                last_error = e
+                continue
+        else:
+            # All APIs failed
+            raise last_error if last_error else requests.RequestException("All Overpass API servers failed")
 
         osm_data = response.json()
         logger.info(f'Received {len(osm_data.get("elements", []))} OSM elements')
