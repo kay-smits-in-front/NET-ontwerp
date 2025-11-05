@@ -169,6 +169,16 @@
                     3. Plaats stroomkasten met de marker-tool<br>
                     4. Bekijk berekeningen hieronder
                 </p>
+                <details class="text-xs text-gray-300 mt-2">
+                    <summary style="cursor: pointer;">ℹ️ Detectie algoritme</summary>
+                    <ul class="mt-2 space-y-1">
+                        <li>• Schuren (<50m²) gefilterd</li>
+                        <li>• Bedrijven (>300m² of naam) uitgesloten</li>
+                        <li>• Gebouwen bij weg vereist</li>
+                        <li>• 3+ aangrenzend = rijtjeshuis</li>
+                        <li>• Twee-onder-kap validatie (moet paar zijn)</li>
+                    </ul>
+                </details>
             </div>
 
             <div class="control-section">
@@ -362,8 +372,11 @@
                     <strong>Huis ${index + 1}</strong><br>
                     Type: ${building.type}<br>
                     Oppervlakte: ${building.area_m2} m²<br>
+                    ${building.adjacent_count !== undefined ? 'Aangrenzend: ' + building.adjacent_count + '<br>' : ''}
+                    ${building.housenumber ? 'Huisnummer: ' + building.housenumber + '<br>' : ''}
                     ${building.name ? 'Naam: ' + building.name + '<br>' : ''}
-                    ID: ${building.id}
+                    ${building.near_road !== undefined ? (building.near_road ? '✓ Bij weg' : '✗ Niet bij weg') + '<br>' : ''}
+                    <small>ID: ${building.id}</small>
                 `;
                 buildingPolygon.bindPopup(popupContent);
 

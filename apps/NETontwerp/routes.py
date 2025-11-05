@@ -285,16 +285,84 @@ def extract_buildings():
         area_m2 = area_deg * meters_per_lat * meters_per_lon
         return abs(area_m2)
 
-    def classify_house_type(area_m2):
-        """Classify building into Dutch house types based on area"""
-        if area_m2 < 30:
-            return None  # Filter out sheds and very small buildings
-        elif area_m2 < 80:
-            return 'Rijtjeshuis'  # Row house/terraced house
-        elif area_m2 < 150:
-            return 'Twee onder een kap'  # Semi-detached
-        else:
+    def classify_house_type(area_m2, has_name, addr_housenumber):
+        """Classify building into Dutch house types based on area and attributes"""
+        # Filter out sheds and very small buildings
+        if area_m2 < 50:
+            return None
+
+        # Buildings > 300m² are always bedrijf or flatgebouw
+        if area_m2 > 300:
+            return 'Bedrijf/Flatgebouw'
+
+        # Buildings with names are bedrijven
+        if has_name and has_name.strip():
+            return 'Bedrijf'
+
+        # Multiple house numbers = apartment complex
+        if addr_housenumber and (',' in addr_housenumber or '-' in addr_housenumber):
+            return 'Appartementencomplex'
+
+        # Initial classification based on refined area ranges
+        if 150 <= area_m2 <= 250:
             return 'Vrijstaand'  # Detached house
+        elif 100 <= area_m2 <= 200:
+            return 'Twee onder een kap'  # Semi-detached (needs validation later)
+        elif 50 <= area_m2 <= 150:
+            return 'Rijtjeshuis'  # Row house/terraced house
+        else:
+            # Outside typical ranges
+            if area_m2 > 250:
+                return 'Bedrijf/Flatgebouw'
+            else:
+                return 'Rijtjeshuis'  # Default to row house for small residential
+
+    def buildings_are_adjacent(coords1, coords2, threshold=0.0001):
+        """Check if two buildings share a boundary (are adjacent)"""
+        poly1 = Polygon(coords1)
+        poly2 = Polygon(coords2)
+
+        # Check if polygons touch or are very close
+        distance = poly1.distance(poly2)
+        return distance < threshold
+
+    def count_adjacent_buildings(building_idx, all_buildings):
+        """Count how many buildings are adjacent to this building"""
+        count = 0
+        current_coords = all_buildings[building_idx]['coords']
+
+        for idx, other_building in enumerate(all_buildings):
+            if idx != building_idx:
+                if buildings_are_adjacent(current_coords, other_building['coords']):
+                    count += 1
+
+        return count
+
+    def get_adjacent_buildings(building_idx, all_buildings):
+        """Get list of indices of buildings adjacent to this one"""
+        adjacent = []
+        current_coords = all_buildings[building_idx]['coords']
+
+        for idx, other_building in enumerate(all_buildings):
+            if idx != building_idx:
+                if buildings_are_adjacent(current_coords, other_building['coords']):
+                    adjacent.append(idx)
+
+        return adjacent
+
+    def is_near_road(building_center, roads, threshold=0.0005):
+        """Check if building is near a road"""
+        from shapely.geometry import LineString
+
+        point = Point(building_center)
+
+        for road in roads:
+            if len(road) >= 2:
+                line = LineString(road)
+                if point.distance(line) < threshold:
+                    return True
+
+        return False
 
     try:
         data = request.get_json()
@@ -308,13 +376,14 @@ def extract_buildings():
         lngs = [coord[1] for coord in polygon_coords]
         bbox = f"{min(lats)},{min(lngs)},{max(lats)},{max(lngs)}"
 
-        # Query Overpass API for buildings
+        # Query Overpass API for buildings AND roads
         overpass_url = "http://overpass-api.de/api/interpreter"
         overpass_query = f"""
         [out:json][timeout:25];
         (
           way["building"]({bbox});
           relation["building"]({bbox});
+          way["highway"]({bbox});
         );
         out body;
         >;
@@ -331,8 +400,9 @@ def extract_buildings():
         # Create polygon for intersection check
         poly = Polygon(polygon_coords)
 
-        # Process buildings
+        # Process data
         buildings = []
+        roads = []
         nodes = {}
         total_area = 0
 
@@ -341,7 +411,21 @@ def extract_buildings():
             if element['type'] == 'node':
                 nodes[element['id']] = (element['lat'], element['lon'])
 
-        # Second pass: process ways (buildings)
+        # Second pass: collect roads
+        for element in osm_data.get('elements', []):
+            if element['type'] == 'way' and 'highway' in element.get('tags', {}):
+                node_ids = element.get('nodes', [])
+                road_coords = []
+                for node_id in node_ids:
+                    if node_id in nodes:
+                        lat, lon = nodes[node_id]
+                        road_coords.append([lat, lon])
+                if len(road_coords) >= 2:
+                    roads.append(road_coords)
+
+        logger.info(f'Found {len(roads)} roads in area')
+
+        # Third pass: process buildings
         for element in osm_data.get('elements', []):
             if element['type'] == 'way' and 'building' in element.get('tags', {}):
                 node_ids = element.get('nodes', [])
@@ -361,31 +445,81 @@ def extract_buildings():
                         # Calculate area in square meters
                         area_m2 = calculate_area_m2(building_poly, center.x)
 
-                        # Classify house type (filters out sheds)
-                        house_type = classify_house_type(area_m2)
+                        # Get building attributes
+                        tags = element.get('tags', {})
+                        has_name = tags.get('name', '')
+                        addr_housenumber = tags.get('addr:housenumber', '')
 
-                        # Only include if it's a valid house (not a shed)
-                        if house_type:
+                        # Initial classification
+                        house_type = classify_house_type(area_m2, has_name, addr_housenumber)
+
+                        # Only include actual houses (not bedrijven or flats yet)
+                        if house_type and house_type not in ['Bedrijf', 'Bedrijf/Flatgebouw', 'Appartementencomplex']:
                             buildings.append({
                                 'id': element['id'],
                                 'coords': building_coords,
                                 'center': [center.x, center.y],
                                 'type': house_type,
-                                'osm_type': element.get('tags', {}).get('building', 'yes'),
-                                'name': element.get('tags', {}).get('name', ''),
+                                'osm_type': tags.get('building', 'yes'),
+                                'name': has_name,
+                                'housenumber': addr_housenumber,
                                 'area_m2': round(area_m2, 1),
+                                'near_road': is_near_road([center.x, center.y], roads),
                             })
-                            total_area += area_m2
 
-        logger.info(f'Found {len(buildings)} houses within polygon (sheds filtered out)')
+        logger.info(f'Found {len(buildings)} potential houses (before post-processing)')
+
+        # Post-processing: refine house types based on adjacency and road proximity
+        filtered_buildings = []
+
+        for idx, building in enumerate(buildings):
+            # Filter out buildings not near roads
+            if not building['near_road']:
+                logger.info(f'Filtering building {building["id"]} - not near road')
+                continue
+
+            # Count adjacent buildings
+            adjacent_count = count_adjacent_buildings(idx, buildings)
+            adjacent_indices = get_adjacent_buildings(idx, buildings)
+
+            # If 3+ adjacent buildings, they are rijtjeshuizen
+            if adjacent_count >= 3:
+                building['type'] = 'Rijtjeshuis'
+                building['adjacent_count'] = adjacent_count
+
+            # Validate twee-onder-een-kap
+            elif building['type'] == 'Twee onder een kap':
+                # Must have exactly 1 adjacent building
+                if adjacent_count == 1:
+                    # Check if adjacent is also twee-onder-een-kap
+                    adjacent_idx = adjacent_indices[0]
+                    if buildings[adjacent_idx]['type'] == 'Twee onder een kap':
+                        # Valid pair
+                        building['adjacent_count'] = adjacent_count
+                    else:
+                        # Not a valid pair, reclassify as rijtjeshuis
+                        building['type'] = 'Rijtjeshuis'
+                        building['adjacent_count'] = adjacent_count
+                else:
+                    # Single twee-onder-een-kap doesn't exist, make it rijtjeshuis
+                    building['type'] = 'Rijtjeshuis'
+                    building['adjacent_count'] = adjacent_count
+
+            else:
+                building['adjacent_count'] = adjacent_count
+
+            filtered_buildings.append(building)
+            total_area += building['area_m2']
+
+        logger.info(f'Found {len(filtered_buildings)} houses after filtering (roads + adjacency)')
 
         # Calculate total amperage (houses × 10A per house)
-        total_amperage = len(buildings) * 10
+        total_amperage = len(filtered_buildings) * 10
 
         return jsonify({
             'success': True,
-            'count': len(buildings),
-            'buildings': buildings,
+            'count': len(filtered_buildings),
+            'buildings': filtered_buildings,
             'total_amperage': total_amperage,
             'total_area_m2': round(total_area, 1),
         })
