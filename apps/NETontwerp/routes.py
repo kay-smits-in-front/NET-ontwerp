@@ -271,6 +271,30 @@ def extract_buildings():
     """API endpoint to extract buildings within a polygon using Overpass API"""
     import requests
     from shapely.geometry import Point, Polygon
+    from shapely.ops import transform
+    import math
+
+    def calculate_area_m2(building_poly, center_lat):
+        """Calculate approximate area in square meters using local projection"""
+        # Approximate meters per degree at given latitude
+        meters_per_lat = 111320
+        meters_per_lon = 111320 * math.cos(math.radians(center_lat))
+
+        # Calculate area in square degrees then convert to m2
+        area_deg = building_poly.area
+        area_m2 = area_deg * meters_per_lat * meters_per_lon
+        return abs(area_m2)
+
+    def classify_house_type(area_m2):
+        """Classify building into Dutch house types based on area"""
+        if area_m2 < 30:
+            return None  # Filter out sheds and very small buildings
+        elif area_m2 < 80:
+            return 'Rijtjeshuis'  # Row house/terraced house
+        elif area_m2 < 150:
+            return 'Twee onder een kap'  # Semi-detached
+        else:
+            return 'Vrijstaand'  # Detached house
 
     try:
         data = request.get_json()
@@ -310,6 +334,7 @@ def extract_buildings():
         # Process buildings
         buildings = []
         nodes = {}
+        total_area = 0
 
         # First pass: collect all nodes
         for element in osm_data.get('elements', []):
@@ -333,20 +358,36 @@ def extract_buildings():
                     center = building_poly.centroid
 
                     if poly.contains(Point(center.x, center.y)):
-                        buildings.append({
-                            'id': element['id'],
-                            'coords': building_coords,
-                            'center': [center.x, center.y],
-                            'type': element.get('tags', {}).get('building', 'yes'),
-                            'name': element.get('tags', {}).get('name', ''),
-                        })
+                        # Calculate area in square meters
+                        area_m2 = calculate_area_m2(building_poly, center.x)
 
-        logger.info(f'Found {len(buildings)} buildings within polygon')
+                        # Classify house type (filters out sheds)
+                        house_type = classify_house_type(area_m2)
+
+                        # Only include if it's a valid house (not a shed)
+                        if house_type:
+                            buildings.append({
+                                'id': element['id'],
+                                'coords': building_coords,
+                                'center': [center.x, center.y],
+                                'type': house_type,
+                                'osm_type': element.get('tags', {}).get('building', 'yes'),
+                                'name': element.get('tags', {}).get('name', ''),
+                                'area_m2': round(area_m2, 1),
+                            })
+                            total_area += area_m2
+
+        logger.info(f'Found {len(buildings)} houses within polygon (sheds filtered out)')
+
+        # Calculate total amperage (houses × 10A per house)
+        total_amperage = len(buildings) * 10
 
         return jsonify({
             'success': True,
             'count': len(buildings),
             'buildings': buildings,
+            'total_amperage': total_amperage,
+            'total_area_m2': round(total_area, 1),
         })
 
     except requests.RequestException as e:
