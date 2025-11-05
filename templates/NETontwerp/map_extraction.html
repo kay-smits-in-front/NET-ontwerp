@@ -325,19 +325,33 @@
         const latlngs = currentPolygon.getLatLngs()[0];
         const polygon = latlngs.map(latlng => [latlng.lat, latlng.lng]);
 
-        // Show loading
+        // Show loading with helpful message
         document.getElementById('loading').style.display = 'block';
         document.getElementById('results').style.display = 'none';
 
+        // Update loading message
+        const loadingDiv = document.getElementById('loading');
+        loadingDiv.innerHTML = `
+            <div class="spinner"></div>
+            <p class="mt-3">Huizen detecteren...</p>
+            <p class="text-xs text-gray-300 mt-2">Dit kan 10-60 seconden duren</p>
+        `;
+
         try {
-            // Call API
+            // Call API with timeout handling
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+
             const response = await fetch('/NETontwerp/api/extract-buildings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ polygon: polygon })
+                body: JSON.stringify({ polygon: polygon }),
+                signal: controller.signal
             });
+
+            clearTimeout(timeoutId);
 
             const data = await response.json();
 
@@ -419,7 +433,19 @@
 
         } catch (error) {
             console.error('Error:', error);
-            updateResults('error', `Fout: ${error.message}`);
+
+            // Provide helpful error messages
+            let errorMessage = 'Fout bij detectie: ' + error.message;
+
+            if (error.name === 'AbortError') {
+                errorMessage = 'Time-out: De server reageert te langzaam. Probeer een kleiner gebied of probeer het later opnieuw.';
+            } else if (error.message.includes('504') || error.message.includes('timeout')) {
+                errorMessage = 'De OpenStreetMap server is overbelast. Probeer het over een paar minuten opnieuw, of selecteer een kleiner gebied.';
+            } else if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Kan geen verbinding maken met de server. Controleer uw internetverbinding.';
+            }
+
+            updateResults('error', errorMessage);
         } finally {
             document.getElementById('loading').style.display = 'none';
             document.getElementById('results').style.display = 'block';
