@@ -20,9 +20,10 @@
     <style>
         #map-container {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 20px;
-            height: 700px;
+            grid-template-columns: 65% 35%;
+            gap: 15px;
+            height: 85vh;
+            max-height: 900px;
         }
 
         #map {
@@ -163,17 +164,30 @@
             <div class="control-section">
                 <h3>🗺️ Instructies</h3>
                 <p class="text-sm text-gray-200 mb-3">
-                    1. Gebruik de polygoon-tool in de linker bovenhoek<br>
-                    2. Teken een gebied op de kaart<br>
-                    3. Klik op "Huizen Detecteren"<br>
-                    4. Bekijk de resultaten hieronder
+                    1. Gebruik de polygoon-tool om een gebied te tekenen<br>
+                    2. Klik op "Huizen Detecteren"<br>
+                    3. Plaats stroomkasten met de marker-tool<br>
+                    4. Bekijk berekeningen hieronder
                 </p>
+                <details class="text-xs text-gray-300 mt-2">
+                    <summary style="cursor: pointer;">ℹ️ Detectie algoritme</summary>
+                    <ul class="mt-2 space-y-1">
+                        <li>• Schuren (<50m²) gefilterd</li>
+                        <li>• Bedrijven (>300m² of naam) uitgesloten</li>
+                        <li>• Gebouwen bij weg vereist</li>
+                        <li>• 3+ aangrenzend = rijtjeshuis</li>
+                        <li>• Twee-onder-kap validatie (moet paar zijn)</li>
+                    </ul>
+                </details>
             </div>
 
             <div class="control-section">
                 <h3>🎯 Acties</h3>
                 <button id="extractBtn" class="btn btn-primary" disabled>
                     🏠 Huizen Detecteren
+                </button>
+                <button id="toggleStroomkastBtn" class="btn btn-primary" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                    ⚡ Stroomkast Plaatsen
                 </button>
                 <button id="clearBtn" class="btn btn-danger">
                     🗑️ Reset Kaart
@@ -220,12 +234,15 @@
         maxZoom: 19
     }).addTo(map);
 
-    // Create feature groups for drawings and buildings
+    // Create feature groups for drawings, buildings, and stroomkasten
     const drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
     const buildingLayers = new L.FeatureGroup();
     map.addLayer(buildingLayers);
+
+    const stroomkastenLayers = new L.FeatureGroup();
+    map.addLayer(stroomkastenLayers);
 
     // Add drawing controls
     const drawControl = new L.Control.Draw({
@@ -257,9 +274,11 @@
     });
     map.addControl(drawControl);
 
-    // Store current polygon
+    // Store current polygon and data
     let currentPolygon = null;
     let currentBuildings = [];
+    let stroomkasten = [];
+    let stroomkastMode = false;
 
     // Handle polygon creation
     map.on(L.Draw.Event.CREATED, function (e) {
@@ -330,30 +349,42 @@
             buildingLayers.clearLayers();
             currentBuildings = data.buildings;
 
-            // Display buildings on map
+            // Display buildings on map with different colors for house types
+            const typeColors = {
+                'Rijtjeshuis': '#3b82f6',      // Blue
+                'Twee onder een kap': '#f59e0b', // Orange
+                'Vrijstaand': '#22c55e'         // Green
+            };
+
             data.buildings.forEach((building, index) => {
+                const color = typeColors[building.type] || '#22c55e';
+
                 // Draw building polygon
                 const buildingPolygon = L.polygon(building.coords, {
-                    color: '#22c55e',
+                    color: color,
                     weight: 2,
-                    fillColor: '#22c55e',
-                    fillOpacity: 0.3
+                    fillColor: color,
+                    fillOpacity: 0.4
                 }).addTo(buildingLayers);
 
                 // Add popup with building info
                 const popupContent = `
                     <strong>Huis ${index + 1}</strong><br>
                     Type: ${building.type}<br>
+                    Oppervlakte: ${building.area_m2} m²<br>
+                    ${building.adjacent_count !== undefined ? 'Aangrenzend: ' + building.adjacent_count + '<br>' : ''}
+                    ${building.housenumber ? 'Huisnummer: ' + building.housenumber + '<br>' : ''}
                     ${building.name ? 'Naam: ' + building.name + '<br>' : ''}
-                    ID: ${building.id}
+                    ${building.near_road !== undefined ? (building.near_road ? '✓ Bij weg' : '✗ Niet bij weg') + '<br>' : ''}
+                    <small>ID: ${building.id}</small>
                 `;
                 buildingPolygon.bindPopup(popupContent);
 
                 // Add marker at center
                 const marker = L.circleMarker(building.center, {
-                    radius: 5,
-                    color: '#ef4444',
-                    fillColor: '#ef4444',
+                    radius: 6,
+                    color: '#fff',
+                    fillColor: color,
                     fillOpacity: 1,
                     weight: 2
                 }).addTo(buildingLayers);
@@ -361,8 +392,21 @@
                 marker.bindPopup(popupContent);
             });
 
-            // Update results
-            updateResults('success', `✅ ${data.count} huizen gedetecteerd!`);
+            // Update results with amperage calculation
+            const resultHTML = `
+                <div class="success-box">
+                    <p class="text-sm mb-2"><strong>✅ ${data.count} huizen gedetecteerd!</strong></p>
+                    <p class="text-sm mb-1">⚡ Totaal vermogen: ${data.total_amperage} Ampère</p>
+                    <p class="text-sm">📐 Totale oppervlakte: ${data.total_area_m2} m²</p>
+                </div>
+                <div class="info-box mt-2">
+                    <p class="text-xs"><strong>Legenda:</strong></p>
+                    <p class="text-xs">🔵 Rijtjeshuis</p>
+                    <p class="text-xs">🟠 Twee onder een kap</p>
+                    <p class="text-xs">🟢 Vrijstaand</p>
+                </div>
+            `;
+            document.getElementById('results').innerHTML = resultHTML;
 
             // Display building list
             displayBuildingList(data.buildings);
@@ -386,12 +430,100 @@
     document.getElementById('clearBtn').addEventListener('click', function() {
         drawnItems.clearLayers();
         buildingLayers.clearLayers();
+        stroomkastenLayers.clearLayers();
         currentPolygon = null;
         currentBuildings = [];
+        stroomkasten = [];
+        stroomkastMode = false;
         document.getElementById('extractBtn').disabled = true;
         updateResults('info', 'Kaart gereset. Teken een nieuwe polygoon.');
         document.getElementById('building-list-container').style.display = 'none';
+        document.getElementById('toggleStroomkastBtn').textContent = '⚡ Stroomkast Plaatsen';
+        map.off('click', placeStroomkast);
     });
+
+    // Stroomkast toggle button
+    document.getElementById('toggleStroomkastBtn').addEventListener('click', function() {
+        stroomkastMode = !stroomkastMode;
+
+        if (stroomkastMode) {
+            this.textContent = '⚡ Klik op Kaart om te Plaatsen';
+            this.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+            map.on('click', placeStroomkast);
+        } else {
+            this.textContent = '⚡ Stroomkast Plaatsen';
+            this.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+            map.off('click', placeStroomkast);
+        }
+    });
+
+    // Place stroomkast on map click
+    function placeStroomkast(e) {
+        const latlng = e.latlng;
+
+        // Create square marker for stroomkast
+        const stroomkastIcon = L.divIcon({
+            className: 'stroomkast-marker',
+            html: '<div style="width: 20px; height: 20px; background: #ef4444; border: 3px solid white; transform: rotate(45deg);"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        const marker = L.marker(latlng, { icon: stroomkastIcon }).addTo(stroomkastenLayers);
+
+        // Add 150 meter radius circle
+        const circle = L.circle(latlng, {
+            radius: 150,
+            color: '#ef4444',
+            fillColor: '#ef4444',
+            fillOpacity: 0.1,
+            weight: 2,
+            dashArray: '5, 5'
+        }).addTo(stroomkastenLayers);
+
+        // Add popup
+        const stroomkastNumber = stroomkasten.length + 1;
+        const popupContent = `
+            <strong>Stroomkast ${stroomkastNumber}</strong><br>
+            Dekking: 150m radius<br>
+            <button onclick="removeStroomkast(${stroomkastNumber - 1})" style="margin-top: 5px; padding: 5px 10px; background: #ef4444; color: white; border: none; border-radius: 4px; cursor: pointer;">Verwijder</button>
+        `;
+        marker.bindPopup(popupContent);
+        circle.bindPopup(popupContent);
+
+        // Store stroomkast data
+        stroomkasten.push({
+            marker: marker,
+            circle: circle,
+            latlng: latlng
+        });
+
+        // Update results
+        updateStroomkastInfo();
+    }
+
+    // Remove stroomkast
+    window.removeStroomkast = function(index) {
+        const stroomkast = stroomkasten[index];
+        if (stroomkast) {
+            stroomkastenLayers.removeLayer(stroomkast.marker);
+            stroomkastenLayers.removeLayer(stroomkast.circle);
+            stroomkasten.splice(index, 1);
+            updateStroomkastInfo();
+        }
+    };
+
+    // Update stroomkast info display
+    function updateStroomkastInfo() {
+        const count = stroomkasten.length;
+        if (count > 0) {
+            const info = `<div class="info-box"><p class="text-sm">⚡ ${count} stroomkast${count > 1 ? 'en' : ''} geplaatst</p></div>`;
+            const resultsDiv = document.getElementById('results');
+            if (!resultsDiv.innerHTML.includes('stroomkast')) {
+                resultsDiv.innerHTML += info;
+            }
+        }
+    }
 
     // Update results display
     function updateResults(type, message) {
@@ -414,12 +546,37 @@
         container.style.display = 'block';
         list.innerHTML = '';
 
+        // Count by type
+        const typeCounts = {};
+        buildings.forEach(b => {
+            typeCounts[b.type] = (typeCounts[b.type] || 0) + 1;
+        });
+
+        // Add summary
+        const summary = document.createElement('div');
+        summary.className = 'building-item';
+        summary.style.background = 'rgba(59, 130, 246, 0.2)';
+        summary.innerHTML = `
+            <strong>Samenvatting:</strong><br>
+            <small>
+                ${typeCounts['Rijtjeshuis'] || 0} Rijtjeshuizen<br>
+                ${typeCounts['Twee onder een kap'] || 0} Twee onder een kap<br>
+                ${typeCounts['Vrijstaand'] || 0} Vrijstaande huizen
+            </small>
+        `;
+        list.appendChild(summary);
+
+        // Add individual buildings
         buildings.forEach((building, index) => {
             const item = document.createElement('div');
             item.className = 'building-item';
+
+            const typeEmoji = building.type === 'Rijtjeshuis' ? '🔵' :
+                             building.type === 'Twee onder een kap' ? '🟠' : '🟢';
+
             item.innerHTML = `
-                <strong>Huis ${index + 1}</strong><br>
-                <small>Type: ${building.type} | ID: ${building.id}</small>
+                ${typeEmoji} <strong>Huis ${index + 1}</strong><br>
+                <small>${building.type} | ${building.area_m2} m²</small>
             `;
 
             // Click to highlight on map
